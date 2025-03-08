@@ -43,6 +43,8 @@ export default function SnakeGame({ onGameOver, gameOver, speed }: SnakeGameProp
   const gameOverRef = useRef(gameOver);
   const gameLoopRef = useRef<number | null>(null);
   const speedRef = useRef(speed);
+  const lastMoveTimeRef = useRef<number>(0);
+  const pendingDirectionRef = useRef<Direction | null>(null);
 
   // Update gameOverRef when prop changes
   useEffect(() => {
@@ -92,38 +94,45 @@ export default function SnakeGame({ onGameOver, gameOver, speed }: SnakeGameProp
     // Set up keyboard controls
     const handleKeyDown = (e: KeyboardEvent) => {
       // Prevent default behavior for arrow keys to avoid page scrolling
-      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd'].includes(e.key.toLowerCase())) {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', ' '].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
       
-      // Store the current direction to ensure we don't process conflicting changes
-      const currentDirection = directionRef.current;
+      // Define opposite directions that aren't allowed
+      const oppositeDirections: Record<Direction, Direction> = {
+        'UP': 'DOWN',
+        'DOWN': 'UP',
+        'LEFT': 'RIGHT',
+        'RIGHT': 'LEFT'
+      };
       
+      // Current direction
+      const currentDirection = directionRef.current;
+      let newDirection: Direction | null = null;
+      
+      // Determine new direction based on key press
       switch (e.key.toLowerCase()) {
         case 'arrowup':
         case 'w':
-          if (currentDirection !== 'DOWN') {
-            directionRef.current = 'UP';
-          }
+          newDirection = 'UP';
           break;
         case 'arrowdown':
         case 's':
-          if (currentDirection !== 'UP') {
-            directionRef.current = 'DOWN';
-          }
+          newDirection = 'DOWN';
           break;
         case 'arrowleft':
         case 'a':
-          if (currentDirection !== 'RIGHT') {
-            directionRef.current = 'LEFT';
-          }
+          newDirection = 'LEFT';
           break;
         case 'arrowright':
         case 'd':
-          if (currentDirection !== 'LEFT') {
-            directionRef.current = 'RIGHT';
-          }
+          newDirection = 'RIGHT';
           break;
+      }
+      
+      // Only queue a direction change if it's not the opposite of current direction
+      if (newDirection && newDirection !== oppositeDirections[currentDirection]) {
+        pendingDirectionRef.current = newDirection;
       }
     };
 
@@ -151,33 +160,39 @@ export default function SnakeGame({ onGameOver, gameOver, speed }: SnakeGameProp
     return { x, y };
   };
 
-  // Start game loop
+  // Start game loop with fixed time step
   const startGameLoop = () => {
-    let lastTime = 0;
-    let deltaTime = 0;
-    let isMoving = false; // Flag to prevent multiple movements within one frame
-
+    // Reset time tracking
+    lastMoveTimeRef.current = 0;
+    
     const gameLoop = (timestamp: number) => {
       if (gameOverRef.current) return;
-
-      if (!lastTime) lastTime = timestamp;
-      deltaTime += timestamp - lastTime;
-      lastTime = timestamp;
-
-      if (deltaTime >= speedRef.current && !isMoving) {
-        isMoving = true; // Set flag to prevent multiple movements
+      
+      // Draw on every frame for smooth rendering
+      draw();
+      
+      // Only move the snake when enough time has passed
+      const timeSinceLastMove = lastMoveTimeRef.current === 0 ? speedRef.current : timestamp - lastMoveTimeRef.current;
+      
+      if (timeSinceLastMove >= speedRef.current) {
+        // Apply any pending direction change before moving
+        if (pendingDirectionRef.current) {
+          directionRef.current = pendingDirectionRef.current;
+          pendingDirectionRef.current = null;
+        }
+        
+        // Move the snake
         update();
-        draw();
-        deltaTime = 0;
-        // Reset the moving flag after a small delay to ensure smooth movement
-        setTimeout(() => {
-          isMoving = false;
-        }, 10);
+        
+        // Record the time of this move
+        lastMoveTimeRef.current = timestamp;
       }
-
+      
+      // Continue the game loop
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
-
+    
+    // Start the loop
     gameLoopRef.current = requestAnimationFrame(gameLoop);
   };
 

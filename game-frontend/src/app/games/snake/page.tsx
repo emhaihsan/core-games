@@ -25,11 +25,11 @@ const mockLeaderboard = {
   ],
 };
 
-// Difficulty settings
+// Difficulty settings - carefully tuned to be playable
 const difficultySettings = {
-  easy: 200, // Slower speed (more ms between updates)
-  medium: 150, // Medium speed
-  hard: 100, // Faster speed (fewer ms between updates)
+  easy: 120, // Very slow speed for beginners (more ms between updates)
+  medium: 90, // Medium speed
+  hard: 50, // Fast but still controlled (fewer ms between updates)
 };
 
 type Difficulty = "easy" | "medium" | "hard";
